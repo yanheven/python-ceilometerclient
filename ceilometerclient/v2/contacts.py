@@ -1,7 +1,6 @@
 #
 # Copyright 2013 Red Hat, Inc
 #
-# Author:  Frankie Gu <guxf@chinanetcenter.com>
 
 import warnings
 
