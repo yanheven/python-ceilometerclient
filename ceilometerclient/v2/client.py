@@ -27,6 +27,7 @@ from ceilometerclient.v2 import samples
 from ceilometerclient.v2 import statistics
 from ceilometerclient.v2 import trait_descriptions
 from ceilometerclient.v2 import traits
+from ceilometerclient.v2 import contacts
 
 
 class Client(object):
@@ -77,3 +78,4 @@ class Client(object):
             self.http_client)
         self.query_alarm_history = query.QueryAlarmHistoryManager(
             self.http_client)
+        self.contacts = contacts.ContactManager(self.http_client)

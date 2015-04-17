@@ -31,6 +31,7 @@ from ceilometerclient.v2 import options
 
 
 ALARM_STATES = ['ok', 'alarm', 'insufficient data']
+CONTACT_STATES = ['enabled', 'disabled']
 ALARM_OPERATORS = ['lt', 'le', 'eq', 'ne', 'ge', 'gt']
 ALARM_COMBINATION_OPERATORS = ['and', 'or']
 STATISTICS = ['max', 'min', 'avg', 'sum', 'count']
@@ -868,3 +869,70 @@ def do_query_alarm_history(cc, args):
         utils.print_list(alarm_history, fields, field_labels,
                          formatters={'rule': alarm_change_detail_formatter},
                          sortby=None)
+
+def _display_contact_list(contacts, sortby=None):
+    # omit action initially to keep output width sane
+    # (can switch over to vertical formatting when available from CLIFF)
+    field_labels = ['Contact Id','Contact Name','Phone','Email',
+                 'State',]
+    fields = ['contact_id','contact_name','contact_phone','contact_email',
+                 'state',]
+    utils.print_list(
+        contacts, fields, field_labels,
+        sortby=sortby)
+
+@utils.arg('-q', '--query', metavar='<QUERY>',
+           help='key[op]data_type::value; list. data_type is optional, '
+                'but if supplied must be string, integer, float, or boolean.')
+def do_contact_list(cc, args={}):
+    '''List the alarm's contacts.'''
+    contacts = cc.contacts.list(q=options.cli_to_array(args.query))
+    _display_contact_list(contacts, sortby=0)
+
+def _display_contact(contact):
+    fields = ['contact_id','contact_name','contact_phone','contact_email',
+                 'state', 'user_id', 'project_id']
+    data = dict([(f, getattr(contact, f, '')) for f in fields])
+    utils.print_dict(data, wrap=72)
+
+@utils.arg('-a', '--contact_id', metavar='<CONTACT_ID>',
+           action=obsoleted_by('contact_id'), help=argparse.SUPPRESS,
+           dest='contact_id_deprecated')
+@utils.arg('contact_id', metavar='<CONTACT_ID>', nargs='?',
+           action=NotEmptyAction, help='ID of the contact to show.')
+def do_contact_show(cc, args={}):
+    '''Show a contact.'''
+    contact = cc.contacts.get(args.contact_id)
+    if contact is None:
+        raise exc.CommandError('Contact not found: %s' % args.contact_id)
+    else:
+        _display_contact(contact)
+
+def common_contact_arguments(create=False):
+    def _wrapper(func):
+        @utils.arg('--project-id', metavar='<PROJECT_ID>',
+                   help='Tenant to associate with alarm '
+                   '(only settable by admin users).')
+        @utils.arg('--user-id', metavar='<USER_ID>',
+                   help='User to associate with alarm '
+                   '(only settable by admin users).')
+        @utils.arg('--state', metavar='<STATE>',
+                   help='State of the alarm, one of: ' + str(CONTACT_STATES))
+        @functools.wraps(func)
+        def _wrapped(*args, **kwargs):
+            return func(*args, **kwargs)
+        return _wrapped
+    return _wrapper
+
+@common_contact_arguments(create=True)
+@utils.arg('--contact_name', metavar='<NAME>', required=True,
+           help='Contact name.')
+@utils.arg('--contact_phone', metavar='<PHONE>',
+           help='Phone number.')
+@utils.arg('--contact_email', metavar='<EMAIL>',
+           help='Email.')
+def do_contact_create(cc, args={}):
+    '''Create a new contact.'''
+    fields = dict(filter(lambda x: not (x[1] is None), vars(args).items()))
+    contact = cc.contacts.create(**fields)
+    _display_contact(contact)
